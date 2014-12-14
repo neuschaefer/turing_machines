@@ -1,0 +1,5 @@
+[package]
+
+name = "dummy"
+version = "0.0.1"
+authors = ["Jonathan Neuschäfer <j.neuschaefer@gmx.net>"]
