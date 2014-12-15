@@ -20,6 +20,8 @@ fn main() {
         }
     }
 
+    tmd.resolve_all_state_indices();
+
     //println!("The TM is now configured as follows:");
     //println!("");
     //println!("{}", json::encode(tm));

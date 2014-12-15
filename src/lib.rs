@@ -4,9 +4,10 @@ extern crate serialize;
 
 use std::default::Default;
 
-#[deriving(Show, Encodable)]
+#[deriving(Show, Clone, Encodable)]
 pub struct Transition {
     pub state: String,
+    pub state_index: Option<uint>,
     pub symbol: char,
     pub movement: Movement
 }
@@ -20,13 +21,14 @@ impl Transition {
 
         Transition {
             state: v[0].to_string(),
+            state_index: None,
             symbol: v[1].char_at(0),
             movement: Movement::from_char(v[2].char_at(0))
         }
     }
 }
 
-#[deriving(Show, Encodable)]
+#[deriving(Show, Clone, Encodable)]
 pub enum Movement {
     Left,
     Right,
@@ -53,7 +55,7 @@ impl Movement {
 }
 
 
-#[deriving(Show, Encodable)]
+#[deriving(Show, Clone, Encodable)]
 pub struct State {
     pub name: String,
     pub transitions: Vec<Option<Transition>>
@@ -84,7 +86,7 @@ impl State {
 //
 // input symbols        A                       B   C
 // transition table     state,symbol,movement ...
-#[deriving(Default, Show, Encodable)]
+#[deriving(Default, Show, Clone, Encodable)]
 pub struct TMDesc {
     pub input_symbols: Vec<char>,
     pub states: Vec<State>,
@@ -121,6 +123,37 @@ impl TMDesc {
             let state = State::new(name.to_string(),
                     words.slice_from(1));
             self.states.push(state);
+        }
+    }
+
+    pub fn resolve_state_index(&self, trans: &Transition) -> uint {
+        if let Some(index) = trans.state_index {
+            index
+        } else {
+            self.states.iter().enumerate()
+                .find(|&(_, s)| s.name[] == trans.state)
+                .map(|(i, _)| i)
+                .unwrap_or_else(||
+                        panic!("state \"{}\" not found", trans.state))
+        }
+    }
+
+    /// Resolve all state names in transitions to simple index into the state
+    /// tale, for faster lookup.
+    pub fn resolve_all_state_indices(&mut self) {
+        // This is a quick and dirty workaround for the borrow checker.
+        // calling self.resolve_state_index would borrow self immutably while
+        // it's already mutably borrowed. This wouldn't be a big deal in our
+        // case, but the borrow checker doesn't allow it.
+        let cloned: TMDesc = self.clone();
+
+        for state in self.states.iter_mut() {
+            for trans in state.transitions.iter_mut() {
+                if let &Some(ref mut trans) = trans {
+                    let index = cloned.resolve_state_index(trans);
+                    trans.state_index = Some(index);
+                }
+            }
         }
     }
 }
@@ -228,14 +261,9 @@ impl<'a> TM<'a> {
             None => panic!("No transition for {} on \'{}\'", self.state.name, input_index)
         };
 
-        let next_state = match self.desc.states.iter().find(
-            |s| s.name == trans.state
-        ) {
-            Some(s) => s,
-            None => panic!("state \"{}\" not found", trans.state)
-        };
+        let state_index = self.desc.resolve_state_index(trans);
 
-        self.state = next_state;
+        self.state = &self.desc.states[state_index];
         self.tape[self.head] = trans.symbol;
         self.head += trans.movement.to_delta();
         self.tape.ensure_space(self.head);
