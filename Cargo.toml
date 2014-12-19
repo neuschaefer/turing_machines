@@ -1,5 +1,23 @@
 [package]
 
-name = "dummy"
+name = "turing_machines"
 version = "0.0.1"
 authors = ["Jonathan Neuschäfer <j.neuschaefer@gmx.net>"]
+
+
+[[bin]]
+
+name = "turing"
+path = "src/interpreter.rs"
+
+
+[[bin]]
+
+name = "turingc"
+path = "src/compiler.rs"
+
+
+[lib]
+
+name = "turing"
+path = "src/lib.rs"
