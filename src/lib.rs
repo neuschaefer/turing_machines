@@ -2,7 +2,6 @@
 
 extern crate serialize;
 
-use std::io::{BufferedReader, File};
 use std::default::Default;
 
 #[deriving(Show, Encodable)]
@@ -73,6 +72,10 @@ impl State {
             name: name,
             transitions: trans
         }
+    }
+
+    pub fn is_final(&self) -> bool {
+        self.name[] == "STOPP"
     }
 }
 
@@ -239,7 +242,7 @@ impl<'a> TM<'a> {
     }
 
     pub fn has_finished(&self) -> bool {
-        self.state.name[] == "STOPP"
+        self.state.is_final()
     }
 
     pub fn get_tape_output(&self) -> String {
