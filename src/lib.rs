@@ -5,10 +5,10 @@ extern crate serialize;
 use std::default::Default;
 
 #[deriving(Show, Encodable)]
-struct Transition {
-    state: String,
-    symbol: char,
-    movement: Movement
+pub struct Transition {
+    pub state: String,
+    pub symbol: char,
+    pub movement: Movement
 }
 
 impl Transition {
@@ -27,7 +27,7 @@ impl Transition {
 }
 
 #[deriving(Show, Encodable)]
-enum Movement {
+pub enum Movement {
     Left,
     Right,
     None
@@ -54,9 +54,9 @@ impl Movement {
 
 
 #[deriving(Show, Encodable)]
-struct State {
-    name: String,
-    transitions: Vec<Option<Transition>>
+pub struct State {
+    pub name: String,
+    pub transitions: Vec<Option<Transition>>
 }
 
 impl State {
@@ -86,8 +86,8 @@ impl State {
 // transition table     state,symbol,movement ...
 #[deriving(Default, Show, Encodable)]
 pub struct TMDesc {
-    input_symbols: Vec<char>,
-    states: Vec<State>,
+    pub input_symbols: Vec<char>,
+    pub states: Vec<State>,
 }
 
 impl TMDesc {
