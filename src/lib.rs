@@ -45,7 +45,7 @@ impl Movement {
         }
     }
 
-    fn to_delta(&self) -> int {
+    pub fn to_delta(&self) -> int {
         match *self {
             Movement::Left => -1,
             Movement::None => 0,
