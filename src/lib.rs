@@ -1,13 +1,14 @@
-#![feature(slicing_syntax)]
+#![feature(collections)]
 
-extern crate serialize;
+extern crate rustc_serialize;
 
 use std::default::Default;
+use std::ops::{Index, IndexMut};
 
-#[deriving(Show, Clone, Encodable)]
+#[derive(Debug, Clone, RustcEncodable)]
 pub struct Transition {
     pub state: String,
-    pub state_index: Option<uint>,
+    pub state_index: Option<usize>,
     pub symbol: char,
     pub movement: Movement
 }
@@ -16,19 +17,19 @@ impl Transition {
     fn from_str(s: &str) -> Transition {
         let v: Vec<_> = s.split(',').collect();
         assert_eq!(v.len(), 3);
-        assert_eq!(v[1].char_len(), 1);
-        assert_eq!(v[2].char_len(), 1);
+        assert_eq!(v[1].chars().count(), 1);
+        assert_eq!(v[2].chars().count(), 1);
 
         Transition {
-            state: v[0].to_string(),
+            state: v[0].into(),
             state_index: None,
-            symbol: v[1].char_at(0),
-            movement: Movement::from_char(v[2].char_at(0))
+            symbol: v[1].chars().next().unwrap(),
+            movement: Movement::from_char(v[2].chars().next().unwrap())
         }
     }
 }
 
-#[deriving(Show, Clone, Encodable)]
+#[derive(Debug, Clone, RustcEncodable)]
 pub enum Movement {
     Left,
     Right,
@@ -45,7 +46,7 @@ impl Movement {
         }
     }
 
-    pub fn to_delta(&self) -> int {
+    pub fn to_delta(&self) -> isize {
         match *self {
             Movement::Left => -1,
             Movement::None => 0,
@@ -55,7 +56,7 @@ impl Movement {
 }
 
 
-#[deriving(Show, Clone, Encodable)]
+#[derive(Debug, Clone, RustcEncodable)]
 pub struct State {
     pub name: String,
     pub transitions: Vec<Option<Transition>>
@@ -77,7 +78,7 @@ impl State {
     }
 
     pub fn is_final(&self) -> bool {
-        self.name[] == "STOPP"
+        self.name == "STOPP"
     }
 }
 
@@ -86,7 +87,7 @@ impl State {
 //
 // input symbols        A                       B   C
 // transition table     state,symbol,movement ...
-#[deriving(Default, Show, Clone, Encodable)]
+#[derive(Default, Debug, Clone, RustcEncodable)]
 pub struct TMDesc {
     pub input_symbols: Vec<char>,
     pub states: Vec<State>,
@@ -115,23 +116,22 @@ impl TMDesc {
     pub fn handle_line(&mut self, words: &[&str]) {
         if self.input_symbols.is_empty() {
             for word in words.iter().skip(1) {
-                assert_eq!(word.char_len(), 1);
-                self.input_symbols.push(word.char_at(0));
+                assert_eq!(word.chars().count(), 1);
+                self.input_symbols.push(word.chars().next().unwrap())
             }
         } else { // a new state
             let name = words[0];
-            let state = State::new(name.to_string(),
-                    words.slice_from(1));
+            let state = State::new(name.into(), &words[1..]);
             self.states.push(state);
         }
     }
 
-    pub fn resolve_state_index(&self, trans: &Transition) -> uint {
+    pub fn resolve_state_index(&self, trans: &Transition) -> usize {
         if let Some(index) = trans.state_index {
             index
         } else {
             self.states.iter().enumerate()
-                .find(|&(_, s)| s.name[] == trans.state)
+                .find(|&(_, s)| s.name == trans.state)
                 .map(|(i, _)| i)
                 .unwrap_or_else(||
                         panic!("state \"{}\" not found", trans.state))
@@ -149,7 +149,7 @@ impl TMDesc {
 
         for state in self.states.iter_mut() {
             for trans in state.transitions.iter_mut() {
-                if let &Some(ref mut trans) = trans {
+                if let &mut Some(ref mut trans) = trans {
                     let index = cloned.resolve_state_index(trans);
                     trans.state_index = Some(index);
                 }
@@ -158,6 +158,7 @@ impl TMDesc {
     }
 }
 
+#[derive(Debug)]
 pub struct Tape {
     left: Vec<char>,
     right: Vec<char>
@@ -172,23 +173,21 @@ impl Tape {
     }
 
     /// maximum index plus one. the name is slightly misleading.
-    pub fn max(&self) -> int {
-        self.right.len() as int
+    pub fn max(&self) -> isize {
+        self.right.len() as isize
     }
 
     /// minimum index.
-    fn min(&self) -> int {
-        -(self.left.len() as int)
+    fn min(&self) -> isize {
+        -(self.left.len() as isize)
     }
 
     /// add blanks to ensure that the given index is valid.
-    pub fn ensure_space(&mut self, i: int) {
+    pub fn ensure_space(&mut self, i: isize) {
         if i >= self.max() {
-            let delta = i - self.max() + 1;
-            self.right.grow(delta as uint, 'B')
+            self.right.resize(i as usize + 1, 'B')
         } else if i < self.min() {
-            let delta = self.min() - i;
-            self.left.grow(delta as uint, 'B')
+            self.left.resize(-i as usize, 'B')
         }
     }
 }
@@ -203,25 +202,27 @@ impl ToString for Tape {
     }
 }
 
-impl IndexMut<int, char> for Tape {
-    fn index_mut<'a>(&'a mut self, i: &int) -> &'a mut char {
-        if *i >= 0 {
-            self.right.index_mut(&(*i as uint))
+impl IndexMut<isize> for Tape {
+    fn index_mut<'a>(&'a mut self, i: isize) -> &'a mut char {
+        if i >= 0 {
+            &mut self.right[i as usize]
         } else {
             //  0 => right[0]
             // -1 => left[0]
             // -2 => left[1]
-            self.left.index_mut(&((-*i - 1) as uint))
+            &mut self.left[(-i - 1) as usize]
         }
     }
 }
 
-impl Index<int, char> for Tape {
-    fn index<'a>(&'a self, i: &int) -> &'a char {
-        if *i >= 0 {
-            self.right.index(&(*i as uint))
+impl Index<isize> for Tape {
+    type Output = char;
+
+    fn index<'a>(&'a self, i: isize) -> &'a char {
+        if i >= 0 {
+            &self.right[i as usize]
         } else {
-            self.left.index(&((-*i - 1) as uint))
+            &self.left[(-i - 1) as usize]
         }
     }
 }
@@ -229,17 +230,21 @@ impl Index<int, char> for Tape {
 /// a runnable turing machine instance
 pub struct TM<'a> {
     desc: &'a TMDesc,
-    head: int,
+    head: isize,
     tape: Tape,
     state: &'a State
 }
 
 impl<'a> TM<'a> {
-    pub fn new<'a>(desc: &'a TMDesc, input: &str) -> TM<'a> {
+    pub fn new(desc: &'a TMDesc, input: &str) -> TM<'a> {
         TM {
             desc: desc,
             head: 0,
-            tape: Tape::from_str(input),
+            tape: {
+                let mut tape = Tape::from_str(input);
+                tape.ensure_space(0);
+                tape
+            },
             state: &desc.states[0]
         }
     }
@@ -275,7 +280,7 @@ impl<'a> TM<'a> {
 
     pub fn get_tape_output(&self) -> String {
         let mut s = String::new();
-        for i in range(self.head, self.tape.max()) {
+        for i in self.head..self.tape.max() {
             s.push(self.tape[i]);
         }
 

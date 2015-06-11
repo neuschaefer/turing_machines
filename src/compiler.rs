@@ -1,15 +1,17 @@
 //! An LLVM-based compiler for turing machines. Coming soon.
-#![feature(unsafe_destructor, slicing_syntax)]
+#![feature(rustc_private)]
+#![cfg(not(test))]
 
 extern crate rustc_llvm;
 extern crate libc;
 extern crate turing;
 
 use turing::{TMDesc, Movement};
+use std::ffi::CString;
 
 mod wrapper {
     use rustc_llvm as llvm;
-    use std::c_str::CString;
+    use std::ffi::CString;
     use libc::{c_uint, c_ulonglong};
 
     pub struct Module<'a> {
@@ -19,7 +21,7 @@ mod wrapper {
     }
 
     impl<'a> Module<'a> {
-        pub fn new<'a>(name: CString, context: &'a Context) -> Module<'a> {
+        pub fn new(name: CString, context: &'a Context) -> Module<'a> {
             let raw = unsafe {
                 llvm::LLVMModuleCreateWithNameInContext(
                     name.as_ptr(),
@@ -58,7 +60,6 @@ mod wrapper {
         }
     }
 
-    #[unsafe_destructor]
     impl<'a> Drop for Module<'a> {
         fn drop(&mut self) {
             unsafe { llvm::LLVMDisposeModule(self.raw) }
@@ -99,6 +100,7 @@ mod wrapper {
         }
     }
 
+    #[derive(Clone, Copy)]
     pub struct Value(llvm::ValueRef);
 
     impl Value {
@@ -134,6 +136,7 @@ mod wrapper {
         }
     }
 
+    #[derive(Clone, Copy)]
     pub struct Ty(llvm::TypeRef);
 
     impl Ty {
@@ -145,7 +148,7 @@ mod wrapper {
             })
         }
 
-        pub fn pointer_type(&self, address_space: uint) -> Ty {
+        pub fn pointer_type(&self, address_space: u32) -> Ty {
             Ty(unsafe {
                 llvm::LLVMPointerType(self.0, address_space as c_uint)
             })
@@ -183,7 +186,7 @@ mod wrapper {
     }
 
     impl<'a> Builder<'a> {
-        pub fn new<'a>(context: &'a Context) -> Builder<'a> {
+        pub fn new(context: &'a Context) -> Builder<'a> {
             let raw = unsafe { llvm::LLVMCreateBuilderInContext(context.0) };
             Builder {
                 raw: raw,
@@ -211,7 +214,7 @@ mod wrapper {
             })
         }
 
-        pub fn build_switch(&mut self, value: Value, elsebb: BasicBlock, ncases: uint) -> Value {
+        pub fn build_switch(&mut self, value: Value, elsebb: BasicBlock, ncases: u32) -> Value {
             Value(unsafe {
                 llvm::LLVMBuildSwitch(self.raw, value.0, elsebb.0, ncases as c_uint)
             })
@@ -262,13 +265,13 @@ mod wrapper {
         }
     }
 
-    #[unsafe_destructor]
     impl<'a> Drop for Builder<'a> {
         fn drop(&mut self) {
             unsafe { llvm::LLVMDisposeBuilder(self.raw) }
         }
     }
 
+    #[derive(Clone, Copy)]
     struct BasicBlock(llvm::BasicBlockRef);
 }
 
@@ -289,17 +292,17 @@ fn build_module(tmdesc: &TMDesc) {
     let zero_i32 = ty_i32.const_int(0u64);
     let zero_i32_twice = &[zero_i32, zero_i32];
 
-    let mut module = Module::new("tm".to_c_str(), &context);
-    let empty = "".to_c_str();
+    let mut module = Module::new(CString::new("tm").unwrap(), &context);
+    let empty = &CString::new("").unwrap();
 
     // build the table of input symbols
     let (table, table_size) = {
         let values: Vec<_> = tmdesc.input_symbols.iter().map(
             |&sym| ty_i32.const_int(sym as u64)
         ).collect();
-        let array = ty_i32.const_array(values[]);
+        let array = ty_i32.const_array(&values);
         let size_value = ty_i32.const_int(tmdesc.input_symbols.len() as u64);
-        let table = module.add_global(array.ty(), &"input_symbols".to_c_str());
+        let table = module.add_global(array.ty(), &CString::new("input_symbols").unwrap());
         table.set_initializer(array);
         (table, size_value)
     };
@@ -308,7 +311,7 @@ fn build_module(tmdesc: &TMDesc) {
         // void tm_fail(const char *str, uint32_t symbol);
         let arg_types = &[ty_i8.pointer_type(0), ty_i32];
         let ty = Ty::function_type(ty_void, arg_types, false);
-        module.get_or_insert_function(&"tm_fail".to_c_str(), ty)
+        module.get_or_insert_function(&CString::new("tm_fail").unwrap(), ty)
     };
 
     // build the turing machine function with signature u32 *tm(u32 *TP)
@@ -324,16 +327,16 @@ fn build_module(tmdesc: &TMDesc) {
         //
         // ... except for final states, which are encoded as "return TP".
 
-        let function = module.add_function(&"tm".to_c_str(), ty_i32p_i32p);
+        let function = module.add_function(&CString::new("tm").unwrap(), ty_i32p_i32p);
         let mut builder = Builder::new(&context);
 
         let top_bb = context.append_basic_block(function, &empty);
         builder.position_at_end(top_bb);
-        let tp_var = builder.build_alloca(ty_i32p, "tp".to_c_str());
+        let tp_var = builder.build_alloca(ty_i32p, CString::new("tp").unwrap());
         builder.build_store(function.get_first_param(), tp_var);
 
         let state_basic_blocks: Vec<_> = tmdesc.states.iter().map(|state|
-            context.append_basic_block(function, &state.name.to_c_str())
+            context.append_basic_block(function, &CString::new(&state.name[..]).unwrap())
         ).collect();
 
         builder.build_br(state_basic_blocks[0]);
@@ -355,7 +358,7 @@ fn build_module(tmdesc: &TMDesc) {
 
             let current_sym = builder.build_load(tp, &empty);
             let n = state.transitions.iter().filter(|&t| t.is_some()).count();
-            let switch = builder.build_switch(current_sym, default, n);
+            let switch = builder.build_switch(current_sym, default, n as u32);
 
             for (t, &s) in state.transitions.iter().filter_map(|t| t.as_ref())
                     .zip(tmdesc.input_symbols.iter()) {
@@ -390,7 +393,7 @@ fn build_module(tmdesc: &TMDesc) {
             // the default case: call tm_fail with the state name and the
             // current symbol.
             builder.position_at_end(default);
-            let name = builder.build_global_string(&state.name.to_c_str(), &empty);
+            let name = builder.build_global_string(&CString::new(&state.name[..]).unwrap(), &empty);
             let name_ptr = builder.build_gep(name, zero_i32_twice, &empty);
             builder.build_call(tm_fail, &[name_ptr, current_sym], &empty);
             builder.build_unreachable();
@@ -408,10 +411,10 @@ fn build_module(tmdesc: &TMDesc) {
             ty_i32          // table size
         ];
         let tm_run_ty = Ty::function_type(ty_void, tm_run_arg_types, false);
-        let tm_run = module.get_or_insert_function(&"tm_run".to_c_str(), tm_run_ty);
+        let tm_run = module.get_or_insert_function(&CString::new("tm_run").unwrap(), tm_run_ty);
 
         let mut builder = Builder::new(&context);
-        let fn_main = module.add_function(&"main".to_c_str(), ty_int_void);
+        let fn_main = module.add_function(&CString::new("main").unwrap(), ty_int_void);
         let bb = context.append_basic_block(fn_main, &empty);
         builder.position_at_end(bb);
 
@@ -426,7 +429,7 @@ fn build_module(tmdesc: &TMDesc) {
     module.dump();
 }
 
-static TM: [[&'static str, ..3], ..4] = [
+static TM: [[&'static str; 3]; 4] = [
     ["", "ぜ", "B"],
     ["q0", "q1,B,N", "q0,ぜ,R"],
     ["q1", "STOPP,B,N", "STOPP,ぜ,L"],
@@ -434,10 +437,12 @@ static TM: [[&'static str, ..3], ..4] = [
 ];
 
 fn main() {
+    // TODO: this should be TMDesc::from_table<I: IntoIterator>(i: I) ->
+    // Result<TMDesc, TMDescError>.
     let mut desc = TMDesc::new();
 
     for i in TM.iter() {
-        desc.handle_line(i[])
+        desc.handle_line(i)
     }
 
     build_module(&desc);
