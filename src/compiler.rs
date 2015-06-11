@@ -5,6 +5,7 @@
 extern crate rustc_llvm;
 extern crate libc;
 extern crate turing;
+extern crate getopts;
 
 use turing::{TMDesc, Movement};
 use std::ffi::CString;
@@ -275,8 +276,7 @@ mod wrapper {
     struct BasicBlock(llvm::BasicBlockRef);
 }
 
-
-fn build_module(tmdesc: &TMDesc) {
+fn build_module(tmdesc: &TMDesc, config: Config) {
     use wrapper::{Context, Module, Ty, Builder};
 
     let context = Context::new();
@@ -393,9 +393,11 @@ fn build_module(tmdesc: &TMDesc) {
             // the default case: call tm_fail with the state name and the
             // current symbol.
             builder.position_at_end(default);
-            let name = builder.build_global_string(&CString::new(&state.name[..]).unwrap(), &empty);
-            let name_ptr = builder.build_gep(name, zero_i32_twice, &empty);
-            builder.build_call(tm_fail, &[name_ptr, current_sym], &empty);
+            if !config.fail_is_unreachable {
+                let name = builder.build_global_string(&CString::new(&state.name[..]).unwrap(), &empty);
+                let name_ptr = builder.build_gep(name, zero_i32_twice, &empty);
+                builder.build_call(tm_fail, &[name_ptr, current_sym], &empty);
+            }
             builder.build_unreachable();
 
         }
@@ -429,6 +431,81 @@ fn build_module(tmdesc: &TMDesc) {
     module.dump();
 }
 
+enum Emit {
+    Exe,
+    TextIR,
+    Bytecode,
+    Object
+}
+
+impl Emit {
+    fn parse(arg: Option<&str>) -> Emit {
+        use Emit::*;
+
+        match arg {
+            None => Exe,
+            Some("exe") => Exe,
+            Some("ll") => TextIR,
+            Some("bc") => Bytecode,
+            Some("o") => Object,
+            Some(arg) => {
+                println!("Invalid argument {} to --emit\n", arg);
+                std::process::exit(1);
+            }
+        }
+    }
+}
+
+struct Config {
+    input: String,
+    output: Option<String>,
+    emit: Emit,
+    fail_is_unreachable: bool,
+}
+
+fn get_config() -> Config {
+    use getopts::*;
+    use std::process::exit;
+
+    let options = &[
+        optflag("h", "help", "Print a help message"),
+        optopt("o", "output", "The output file", "FILE"),
+        optopt("", "emit",
+                "Emit an executable (exe, default), textual LLVM IR (ll), \
+                bytecode (bc), or an object file (o)",
+                "exe|ll|bc|o"),
+        optflag("", "fail-is-unreachable",
+                "Instead of emitting a call to tm_fail, assume that failures are unreachable."),
+    ];
+
+    let mut args = std::env::args();
+    let program = args.next().unwrap();
+    let args_vec = args.collect::<Vec<_>>();
+
+    let matches = getopts(&args_vec, options).unwrap();
+
+    let brief = format!("Usage: {} [options] filename", program);
+    if matches.opt_present("help") {
+        // TODO: use stderr
+        print!("{}", usage(&brief, options));
+        exit(0);
+    }
+
+    if matches.free.len() != 1 {
+        println!("{}", brief);
+        exit(1);
+    }
+
+    let emit = matches.opt_str("emit");
+
+    Config {
+        input: matches.free[0].clone(),
+        output: matches.opt_str("o"),
+        emit: Emit::parse(emit.as_ref().map(|s|&s[..])),
+        fail_is_unreachable: matches.opt_present("fail-is-unreachable"),
+    }
+}
+
 static TM: [&'static [&'static str]; 4] = [
     &["", "ぜ", "B"],
     &["q0", "q1,B,N", "q0,ぜ,R"],
@@ -439,5 +516,5 @@ static TM: [&'static [&'static str]; 4] = [
 fn main() {
     let desc = TMDesc::from_lines(TM.iter().cloned());
 
-    build_module(&desc);
+    build_module(&desc, get_config());
 }
