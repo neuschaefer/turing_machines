@@ -139,8 +139,8 @@ impl TMDesc {
         }
     }
 
-    /// Resolve all state names in transitions to simple index into the state
-    /// tale, for faster lookup.
+    /// Resolve all state names in transitions to simple indices into the state
+    /// table, for faster lookup.
     pub fn resolve_all_state_indices(&mut self) {
         // This is a quick and dirty workaround for the borrow checker.
         // calling self.resolve_state_index would borrow self immutably while
