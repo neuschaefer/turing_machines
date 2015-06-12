@@ -429,21 +429,15 @@ fn build_module(tmdesc: &TMDesc) {
     module.dump();
 }
 
-static TM: [[&'static str; 3]; 4] = [
-    ["", "ぜ", "B"],
-    ["q0", "q1,B,N", "q0,ぜ,R"],
-    ["q1", "STOPP,B,N", "STOPP,ぜ,L"],
-    ["STOPP", "q1,B,N", "q0,ぜ,R"]
+static TM: [&'static [&'static str]; 4] = [
+    &["", "ぜ", "B"],
+    &["q0", "q1,B,N", "q0,ぜ,R"],
+    &["q1", "STOPP,B,N", "STOPP,ぜ,L"],
+    &["STOPP", "q1,B,N", "q0,ぜ,R"]
 ];
 
 fn main() {
-    // TODO: this should be TMDesc::from_table<I: IntoIterator>(i: I) ->
-    // Result<TMDesc, TMDescError>.
-    let mut desc = TMDesc::new();
-
-    for i in TM.iter() {
-        desc.handle_line(i)
-    }
+    let desc = TMDesc::from_lines(TM.iter().cloned());
 
     build_module(&desc);
 }

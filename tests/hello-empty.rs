@@ -24,15 +24,7 @@ STOPP
 
 #[test]
 fn test_hello() {
-    // TMDesc::from(HELLO_TM).unwrap()
-    let mut desc = TMDesc::new();
-
-    for line in HELLO_TM.lines() {
-        if let Some(words) = TMDesc::parse_line(line) {
-            desc.handle_line(&words);
-        }
-    }
-
+    let desc = TMDesc::from_string(HELLO_TM);
     println!("{:?}", desc);
 
     let mut tm = TM::new(&desc, "");

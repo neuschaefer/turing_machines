@@ -2,8 +2,14 @@
 
 extern crate rustc_serialize;
 
+mod errors;
+
+use errors::*;
 use std::default::Default;
-use std::ops::{Index, IndexMut};
+use std::ops::{Index, IndexMut, Deref};
+use std::path::Path;
+use std::fs::File;
+use std::io::Read;
 
 #[derive(Debug, Clone, RustcEncodable)]
 pub struct Transition {
@@ -149,6 +155,27 @@ impl TMDesc {
                 }
             }
         }
+    }
+
+    pub fn from_file(path: &Path) -> Result<TMDesc, TMDescError> {
+        let mut file = try!(File::open(path));
+        let mut string = String::new();
+
+        try!(file.read_to_string(&mut string));
+        Ok(Self::from_string(&string))
+    }
+
+    pub fn from_string(string: &str) -> TMDesc {
+        let lines = string.lines().filter_map(Self::parse_line).collect::<Vec<_>>();
+        Self::from_lines(lines)
+    }
+
+    pub fn from_lines<'a, I, S>(lines: I) -> TMDesc where I: IntoIterator<Item=S>, S: Deref<Target=[&'a str]> {
+        let mut desc = Self::new();
+        for line in lines {
+            desc.handle_line(&*line)
+        }
+        desc
     }
 }
 
