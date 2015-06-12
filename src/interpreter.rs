@@ -15,10 +15,9 @@ fn main() {
     let mut tmd = TMDesc::new();
 
     for line_res in reader.lines() {
-        if let Ok(line) = line_res {
-            if let Ok(words) = TMDesc::parse_line(line.trim_right()) {
-                tmd.handle_line(&words);
-            }
+        let line = line_res.unwrap();
+        if let Some(words) = TMDesc::parse_line(line.trim_right()) {
+            tmd.handle_line(&words);
         }
     }
 

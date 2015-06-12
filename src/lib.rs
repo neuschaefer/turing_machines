@@ -98,19 +98,13 @@ impl TMDesc {
         Default::default()
     }
 
-    pub fn parse_line(line: &str) -> Result<Vec<&str>, ()> {
-        if line.starts_with("#") {
-            // this line is a comment
-            return Err(());
+    pub fn parse_line(line: &str) -> Option<Vec<&str>> {
+        // Comments and empty lines are ignored
+        if line.starts_with("#") || line.is_empty() {
+            return None;
         }
 
-        if line.is_empty() {
-            return Err(());
-        }
-
-        let words: Vec<_> = line.split('\t').collect();
-
-        Ok(words)
+        Some(line.split('\t').collect())
     }
 
     pub fn handle_line(&mut self, words: &[&str]) {
