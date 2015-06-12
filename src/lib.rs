@@ -158,6 +158,10 @@ impl TMDesc {
         }
     }
 
+    pub fn blank_symbol(&self) -> char {
+        *self.input_symbols.last().unwrap()
+    }
+
     pub fn from_file(path: &Path) -> Result<TMDesc, TMDescError> {
         let mut file = try!(File::open(path));
         let mut string = String::new();

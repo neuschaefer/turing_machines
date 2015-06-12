@@ -362,17 +362,22 @@ fn build_module(tmdesc: &TMDesc, config: &Config) {
             let n = state.transitions.iter().filter(|&t| t.is_some()).count();
             let switch = builder.build_switch(current_sym, default, n as u32);
 
-            for (t, &s) in state.transitions.iter().filter_map(|t| t.as_ref())
-                    .zip(tmdesc.input_symbols.iter()) {
-                let sym = ty_i32.const_int(s as u64);
+            for (t, &s) in state.transitions.iter().zip(tmdesc.input_symbols.iter())
+                        .filter(|p| p.0.is_some()) {
+                // The tape is initialized with zeroes by libturingrt; let's
+                // treat them as blanks.
+                let tape_s = map_blank_to_null(tmdesc, s);
+                let sym = ty_i32.const_int(tape_s as u64);
                 let tbb = context.append_basic_block(function, &empty);
                 switch.add_case(sym, tbb);
 
+
                 // case 'A': *TP = 'C'; TP++; goto q5;
                 builder.position_at_end(tbb);
+                let t = t.as_ref().unwrap();
                 if s != t.symbol {
-                    let new = ty_i32.const_int(t.symbol as u64);
-                    builder.build_store(new, tp);
+                    let new = map_blank_to_null(tmdesc, t.symbol) as u64;
+                    builder.build_store(ty_i32.const_int(new), tp);
                 }
                 match t.movement {
                     Movement::Left | Movement::Right => {
@@ -431,6 +436,10 @@ fn build_module(tmdesc: &TMDesc, config: &Config) {
     }
 
     module.dump();
+}
+
+fn map_blank_to_null(desc: &TMDesc, sym: char) -> char {
+    if sym == desc.blank_symbol() { '\0' } else { sym }
 }
 
 enum Emit {
