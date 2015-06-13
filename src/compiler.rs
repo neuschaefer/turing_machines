@@ -4,10 +4,10 @@
 
 extern crate rustc_llvm;
 extern crate libc;
-extern crate turing;
+extern crate turing_machines;
 extern crate getopts;
 
-use turing::{TMDesc, Movement};
+use turing_machines::{TMDesc, Movement};
 use std::ffi::CString;
 
 mod wrapper {

@@ -14,7 +14,7 @@ name = "turingc"
 path = "src/compiler.rs"
 
 [lib]
-name = "turing"
+name = "turing_machines"
 path = "src/lib.rs"
 
 

@@ -1,8 +1,8 @@
 #![feature(io)]
 
-extern crate turing;
+extern crate turing_machines;
 
-use turing::{TMDesc, TM};
+use turing_machines::{TMDesc, TM};
 use std::io::{Read, BufRead, BufReader};
 use std::fs::File;
 use std::path::Path;

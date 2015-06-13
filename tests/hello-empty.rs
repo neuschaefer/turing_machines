@@ -1,6 +1,6 @@
-extern crate turing;
+extern crate turing_machines;
 
-use turing::{TMDesc, TM};
+use turing_machines::{TMDesc, TM};
 
 // This turing machine should write the string "HELLO.WORLD!", walk back to
 // its start and terminate.
