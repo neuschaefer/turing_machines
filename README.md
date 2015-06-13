@@ -3,22 +3,26 @@
 
 This [rust] crate contains a library, compiler and interpreter for dealing with
 Turing Machines.
-It still lacks some functionality such as proper command line interfaces, but
-running TMs works.
+
+It isn't fully baked yet, but patches and bug reports are welcome.
 
 [rust]: https://rust-lang.org/
 [tr-img]: https://travis-ci.org/neuschaefer/turing_machines.png
 [tr-link]: https://travis-ci.org/neuschaefer/turing_machines
+
 
 ## Using the tools
 
 First, you'll have to compile the crate, with `cargo build`.
 
 `turing_machines` comes with two tools: An interpreter (`turing`), which will
-simply follow the transitions of a turing machine until the `stop` state is
-reached, and a compiler, based on LLVM.
+simply follow the transitions of a turing machine until the stop state is
+reached, and a compiler (`turingc`), that uses [LLVM] for optimization and code
+generation.
 
-### `turing`
+[LLVM]: http://llvm.org/
+
+### turing
 
 ```sh
 $ cargo run --bin turing data/hello.tm </dev/null
@@ -27,7 +31,7 @@ HELLO.WORLD!
 
 (Which does not work at the moment)
 
-### `turingc`
+### turingc
 
 ```sh
 $ target/debug/turingc data/hello.tm 2> hello.ll
@@ -60,7 +64,7 @@ First, add this to your `Cargo.toml`:
 git = "https://github.com/neuschaefer/turing_machines"
 ```
 
-Then, run `cargo doc --open` to see how the api works ;-).
+Then, run `cargo doc --open` to see how the api works ;-)
 
 
 ## License
