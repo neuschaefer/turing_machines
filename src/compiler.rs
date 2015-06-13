@@ -1,4 +1,4 @@
-//! An LLVM-based compiler for turing machines. Coming soon.
+//! An LLVM-based compiler for turing machines.
 #![feature(rustc_private)]
 #![cfg(not(test))]
 
@@ -9,6 +9,8 @@ extern crate getopts;
 
 use turing_machines::{TMDesc, Movement};
 use std::ffi::CString;
+use std::process::exit;
+use std::path::Path;
 
 mod wrapper {
     use rustc_llvm as llvm;
@@ -276,7 +278,7 @@ mod wrapper {
     struct BasicBlock(llvm::BasicBlockRef);
 }
 
-fn build_module(tmdesc: &TMDesc, config: Config) {
+fn build_module(tmdesc: &TMDesc, config: &Config) {
     use wrapper::{Context, Module, Ty, Builder};
 
     let context = Context::new();
@@ -450,7 +452,7 @@ impl Emit {
             Some("o") => Object,
             Some(arg) => {
                 println!("Invalid argument {} to --emit\n", arg);
-                std::process::exit(1);
+                exit(1);
             }
         }
     }
@@ -465,7 +467,6 @@ struct Config {
 
 fn get_config() -> Config {
     use getopts::*;
-    use std::process::exit;
 
     let options = &[
         optflag("h", "help", "Print a help message"),
@@ -506,15 +507,15 @@ fn get_config() -> Config {
     }
 }
 
-static TM: [&'static [&'static str]; 4] = [
-    &["", "ぜ", "B"],
-    &["q0", "q1,B,N", "q0,ぜ,R"],
-    &["q1", "STOPP,B,N", "STOPP,ぜ,L"],
-    &["STOPP", "q1,B,N", "q0,ぜ,R"]
-];
-
 fn main() {
-    let desc = TMDesc::from_lines(TM.iter().cloned());
+    let config = get_config();
+    let desc = match TMDesc::from_file(&Path::new(&config.input)) {
+        Ok(desc) => desc,
+        Err(e) => {
+            println!("Failed to load `{}`. Reason: {}", config.input, e);
+            exit(1);
+        }
+    };
 
-    build_module(&desc, get_config());
+    build_module(&desc, &config);
 }
