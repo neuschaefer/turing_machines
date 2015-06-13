@@ -4,6 +4,8 @@ name = "turing_machines"
 version = "0.0.1"
 authors = ["Jonathan Neuschäfer <j.neuschaefer@gmx.net>"]
 
+build = "build.rs"
+
 
 [[bin]]
 name = "turing"
@@ -21,3 +23,6 @@ path = "src/lib.rs"
 [dependencies]
 rustc-serialize = "*"
 libc = "*"
+
+[build-dependencies]
+gcc = "*"

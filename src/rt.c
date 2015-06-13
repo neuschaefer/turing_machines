@@ -57,7 +57,8 @@ extern void tm_run(tm_func_t fn, uint32_t *isyms, uint32_t num_isyms)
 
 static bool is_isym(uint32_t which, uint32_t *isyms, uint32_t num_isyms)
 {
-	for (uint32_t i = 0; i < num_isyms; i++)
+	uint32_t i;
+	for (i = 0; i < num_isyms; i++)
 		if (which == isyms[i])
 			return true;
 	return false;
@@ -105,7 +106,8 @@ static void read_input(char *buf, size_t bufsize, wchar_t *tape,
 
 static void write_output(wchar_t *tape, uint32_t *isyms, uint32_t num_isyms)
 {
-	for (wchar_t *p = tape; is_isym(*p, isyms, num_isyms); p++) {
+	wchar_t *p;
+	for (p = tape; is_isym(*p, isyms, num_isyms); p++) {
 		printf("Symbol U+%04X in output stream\n", *p);
 		// TODO!
 	}
