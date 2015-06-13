@@ -84,7 +84,7 @@ static void read_input(char *buf, size_t bufsize, wchar_t *tape,
 
 		/* decode each character, store input characters on the tape */
 		while (offset < bytes) {
-			int res = mbrtowc(&wc, buf+offset, bufsize-offset,
+			int res = mbrtowc(&wc, buf+offset, bytes-offset,
 					&state);
 
 			if (res > 0) {
@@ -106,11 +106,14 @@ static void read_input(char *buf, size_t bufsize, wchar_t *tape,
 
 static void write_output(wchar_t *tape, uint32_t *isyms, uint32_t num_isyms)
 {
+	char buf[8];
+	mbstate_t shift_state;
 	wchar_t *p;
 	for (p = tape; is_isym(*p, isyms, num_isyms); p++) {
-		printf("Symbol U+%04X in output stream\n", *p);
-		// TODO!
+		int n = wcrtomb(buf, *p, &shift_state);
+		fwrite(buf, 1, n, stdout);
 	}
+	puts("");
 }
 
 #define P(...) fprintf(stderr, PREFIX __VA_ARGS__)
