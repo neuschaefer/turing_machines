@@ -1,4 +1,4 @@
-`turing_machines` [![(build status)](tr-img)](tr-link)
+`turing_machines` [![(build status)][tr-img]][tr-link]
 ======================================================
 
 This [rust] crate contains a library, compiler and interpreter for dealing with
