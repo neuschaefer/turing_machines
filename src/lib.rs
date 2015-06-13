@@ -4,12 +4,13 @@ extern crate rustc_serialize;
 
 mod errors;
 
-use errors::*;
 use std::default::Default;
 use std::ops::{Index, IndexMut, Deref};
 use std::path::Path;
 use std::fs::File;
 use std::io::Read;
+
+pub use errors::TMDescError;
 
 #[derive(Debug, Clone, RustcEncodable)]
 pub struct Transition {
